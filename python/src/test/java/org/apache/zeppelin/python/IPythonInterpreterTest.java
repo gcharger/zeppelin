@@ -18,6 +18,10 @@
 package org.apache.zeppelin.python;
 
 import net.jodah.concurrentunit.Waiter;
+import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
+import org.apache.commons.httpclient.methods.PutMethod;
+import org.apache.commons.httpclient.methods.StringRequestEntity;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
@@ -27,6 +31,8 @@ import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.interpreter.InterpreterResultMessage;
 import org.apache.zeppelin.interpreter.LazyOpenInterpreter;
+import org.apache.zeppelin.interpreter.remote.RemoteInterpreterUtils;
+import org.apache.zeppelin.serving.RestApiServer;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -39,8 +45,8 @@ import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-
 public class IPythonInterpreterTest extends BasePythonInterpreterTest {
+  private HttpClient client;
 
   protected Properties initIntpProperties() {
     Properties properties = new Properties();
@@ -63,6 +69,7 @@ public class IPythonInterpreterTest extends BasePythonInterpreterTest {
   public void setUp() throws InterpreterException {
     Properties properties = initIntpProperties();
     startInterpreter(properties);
+    client = new HttpClient(new MultiThreadedHttpConnectionManager());
   }
 
   @Override
@@ -326,4 +333,130 @@ public class IPythonInterpreterTest extends BasePythonInterpreterTest {
     }
   }
 
+  @Test
+  public void testAddRestApiJsonRequest()
+          throws InterpreterException, InterruptedException, IOException {
+    // given
+    int port = RemoteInterpreterUtils.findRandomAvailablePortOnAllLocalInterfaces();
+    RestApiServer.setPort(port);
+    InterpreterContext context = getInterpreterContext();
+
+    // when
+    InterpreterResult result = interpreter.interpret(
+            "def stringlen(d):\n  return len(d[\"input\"])\nz.addRestApi(\"len\", stringlen)\n",
+            context);
+    waitForResult(result, Code.SUCCESS);
+
+    // then
+    PutMethod put = new PutMethod(String.format("http://localhost:%d/%s",
+                    RestApiServer.getPort(),
+                    "len"));
+    put.setRequestEntity(new StringRequestEntity(
+            "{\"input\": \"abc\"}",
+            "application/json",
+            "utf8"));
+
+    int code = client.executeMethod(put);
+    assertEquals(200, code);
+    assertEquals("3", put.getResponseBodyAsString());
+
+    put.releaseConnection();
+  }
+
+  @Test
+  public void testAddRestApiJsonRequestJsonReturn()
+          throws InterpreterException, InterruptedException, IOException {
+    // given
+    int port = RemoteInterpreterUtils.findRandomAvailablePortOnAllLocalInterfaces();
+    RestApiServer.setPort(port);
+    InterpreterContext context = getInterpreterContext();
+
+    // when
+    InterpreterResult result = interpreter.interpret(
+            "def stringlen(d):\n  return {\"len\": len(d[\"input\"])}\n" +
+                    "z.addRestApi(\"len\", stringlen)\n",
+            context);
+    waitForResult(result, Code.SUCCESS);
+
+    // then
+    PutMethod put = new PutMethod(String.format("http://localhost:%d/%s",
+            RestApiServer.getPort(), "len"));
+    put.setRequestEntity(new StringRequestEntity(
+            "{\"input\": \"abc\"}",
+            "application/json",
+            "utf8"));
+
+    int code = client.executeMethod(put);
+    assertEquals(200, code);
+    assertEquals("{\"len\":3}", put.getResponseBodyAsString());
+
+    put.releaseConnection();
+  }
+
+  @Test
+  public void testAddRestApiStringRequest()
+          throws InterpreterException, InterruptedException, IOException {
+    // given
+    int port = RemoteInterpreterUtils.findRandomAvailablePortOnAllLocalInterfaces();
+    RestApiServer.setPort(port);
+    InterpreterContext context = getInterpreterContext();
+
+    // when
+    InterpreterResult result = interpreter.interpret(
+            "def stringlen(d):\n  return len(d)\nz.addRestApi(\"len\", stringlen)\n", context);
+    waitForResult(result, Code.SUCCESS);
+
+    // then
+    PutMethod put = new PutMethod(String.format("http://localhost:%d/%s",
+            RestApiServer.getPort(), "len"));
+    put.setRequestEntity(new StringRequestEntity("abc", "text/plain", "utf8"));
+
+    int code = client.executeMethod(put);
+    assertEquals(200, code);
+    assertEquals("3", put.getResponseBodyAsString());
+
+    put.releaseConnection();
+  }
+
+  @Test
+  public void testCustomResponseHeader()
+          throws InterpreterException, InterruptedException, IOException {
+    // given
+    int port = RemoteInterpreterUtils.findRandomAvailablePortOnAllLocalInterfaces();
+    RestApiServer.setPort(port);
+    InterpreterContext context = getInterpreterContext();
+
+    // when
+    InterpreterResult result = interpreter.interpret(
+            "def stringlen(d):\n  return len(d), {'z-metric-c1': len(d)}\n" +
+                    "z.addRestApi(\"len\", stringlen)\n", context);
+    waitForResult(result, Code.SUCCESS);
+
+    // then
+    PutMethod put = new PutMethod(String.format("http://localhost:%d/%s",
+            RestApiServer.getPort(), "len"));
+    put.setRequestEntity(new StringRequestEntity("abc", "text/plain", "utf8"));
+
+    int code = client.executeMethod(put);
+    assertEquals(200, code);
+    assertEquals("3", put.getResponseBodyAsString());
+    assertEquals("3", put.getResponseHeader("z-metric-c1").getValue());
+
+    put.releaseConnection();
+  }
+
+  private void waitForResult(InterpreterResult result, InterpreterResult.Code code) {
+    long start = System.currentTimeMillis();
+    while (result.code() != code) {
+      try {
+        Thread.sleep(300);
+      } catch (InterruptedException e) {
+        continue;
+      }
+
+      if (System.currentTimeMillis() - start > 30 * 1000) {
+        throw new RuntimeException("Result expected " + code);
+      }
+    }
+  }
 }

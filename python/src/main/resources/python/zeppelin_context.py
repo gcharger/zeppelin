@@ -18,6 +18,7 @@
 import os, sys
 import warnings
 import base64
+import threading
 
 from io import BytesIO
 
@@ -25,6 +26,7 @@ try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
+
 
 class PyZeppelinContext(object):
     """ A context impl that uses Py4j to communicate to JVM
@@ -38,6 +40,9 @@ class PyZeppelinContext(object):
         self.max_result = z.getMaxResult()
         self._displayhook = lambda *args: None
         self._setup_matplotlib()
+        self._apiHandlers = {}
+        t = threading.Thread(target=self._handleApiRequestThread)
+        t.start()
 
     # By implementing special methods it makes operating on it more Pythonic
     def __setitem__(self, key, item):
@@ -87,6 +92,31 @@ class PyZeppelinContext(object):
 
     def noteCheckbox(self, name, options, defaultChecked=[]):
         return self.z.noteCheckbox(name, self.getDefaultChecked(defaultChecked), self.getParamOptions(options))
+
+    def addRestApi(self, name, fn):
+        self._apiHandlers[name] = fn
+        return self.z.addRestApiHandler(name)
+
+    def _handleApiRequestThread(self):
+        while True:
+          msg = self.z.getNextApiRequestFromQueue()
+          if msg == None:
+              continue
+
+          endpoint = msg.getEndpoint()
+          request = msg.getRequestBody()
+          fn = self._apiHandlers[endpoint]
+
+          try:
+              ret = fn(request)
+              if isinstance(ret, tuple):
+                msg.setResponseHeader(ret[1])
+                msg.setResponseBody(ret[0])
+              else:
+                msg.setResponseBody(ret)
+          except:
+              err = sys.exc_info()[0]
+              msg.setResponseBody(str(err))
 
     def registerHook(self, event, cmd, replName=None):
         if replName is None:

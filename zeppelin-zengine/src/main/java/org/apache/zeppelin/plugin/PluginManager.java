@@ -18,11 +18,17 @@
 package org.apache.zeppelin.plugin;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.apache.zeppelin.background.NoteBackgroundTaskManager;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.interpreter.launcher.InterpreterLauncher;
 import org.apache.zeppelin.interpreter.recovery.RecoveryStorage;
 import org.apache.zeppelin.notebook.repo.NotebookRepo;
 import org.apache.zeppelin.notebook.repo.OldNotebookRepo;
+import org.apache.zeppelin.serving.DummyNoteBackgroundTaskManager;
+import org.apache.zeppelin.serving.DummyRestApiRouter;
+import org.apache.zeppelin.serving.MetricStorage;
+import org.apache.zeppelin.serving.RedisMetricStorage;
+import org.apache.zeppelin.serving.RestApiRouter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +54,8 @@ public class PluginManager {
   private String pluginsDir = zConf.getPluginsDir();
 
   private Map<String, InterpreterLauncher> cachedLaunchers = new HashMap<>();
+  private Map<String, NoteBackgroundTaskManager> cachedBackgroundTaskManagers = new HashMap<>();
+  private Map<String, RestApiRouter> cachedRestApiRouter = new HashMap<>();
 
   public static synchronized PluginManager get() {
     if (instance == null) {
@@ -159,6 +167,119 @@ public class PluginManager {
     return launcher;
   }
 
+  public synchronized NoteBackgroundTaskManager loadNoteBackgroundTaskManager() throws IOException {
+    if (zConf.getRunMode() == ZeppelinConfiguration.RUN_MODE.K8S) {
+      /**
+       * For now, class name is hardcoded here.
+       * Later, we can make it configurable if necessary.
+       */
+      return loadNoteBackgroundTaskManager(
+              "K8sStandardInterpreterLauncher",
+              "org.apache.zeppelin.serving.K8sNoteServingTaskManager"
+      );
+    } else {
+      return new DummyNoteBackgroundTaskManager(zConf);
+    }
+  }
+
+  public synchronized NoteBackgroundTaskManager loadNoteTestTaskManager() throws IOException {
+    if (zConf.getRunMode() == ZeppelinConfiguration.RUN_MODE.K8S) {
+      /**
+       * For now, class name is hardcoded here.
+       * Later, we can make it configurable if necessary.
+       */
+      return loadNoteBackgroundTaskManager(
+              "K8sStandardInterpreterLauncher",
+              "org.apache.zeppelin.test.K8sNoteTestTaskManager"
+      );
+    } else {
+      return new DummyNoteBackgroundTaskManager(zConf);
+    }
+  }
+
+  public synchronized NoteBackgroundTaskManager loadNoteBackgroundTaskManager(String launcherPlugin,
+                                                                              String pluginClass) throws IOException {
+
+    if (cachedBackgroundTaskManagers.containsKey(pluginClass)) {
+      return cachedBackgroundTaskManagers.get(pluginClass);
+    }
+    LOGGER.info("Loading Interpreter Launcher Plugin: " + launcherPlugin);
+    URLClassLoader pluginClassLoader = getPluginClassLoader(pluginsDir, "Launcher", launcherPlugin);
+    NoteBackgroundTaskManager taskManager = null;
+    try {
+      taskManager = (NoteBackgroundTaskManager) (Class.forName(pluginClass, true, pluginClassLoader))
+              .getConstructor(ZeppelinConfiguration.class)
+              .newInstance(zConf);
+    } catch (InstantiationException | IllegalAccessException | ClassNotFoundException
+            | NoSuchMethodException | InvocationTargetException e) {
+      LOGGER.warn("Fail to instantiate Launcher from plugin classpath:" + launcherPlugin, e);
+    }
+
+    if (taskManager == null) {
+      throw new IOException("Fail to load plugin: " + launcherPlugin);
+    }
+    cachedBackgroundTaskManagers.put(pluginClass, taskManager);
+    return taskManager;
+  }
+
+  public synchronized RestApiRouter loadNoteServingRestApiRouter() throws IOException {
+    if (zConf.getRunMode() == ZeppelinConfiguration.RUN_MODE.K8S) {
+      String backgroundTaskType = System.getenv("ZEPPELIN_BACKGROUND_TYPE");
+      if ("test".equalsIgnoreCase(backgroundTaskType)) {
+        // if NoteTestTask shouldn't add route during test.
+        return new DummyRestApiRouter();
+      }
+
+      /**
+       * For now, class name is hardcoded here.
+       * Later, we can make it configurable if necessary.
+       */
+      return loadNoteServingRestApiRouter(
+              "K8sStandardInterpreterLauncher",
+              "org.apache.zeppelin.serving.K8sRestApiRouter"
+      );
+    } else {
+      return new DummyRestApiRouter();
+    }
+  }
+
+  public synchronized RestApiRouter loadNoteServingRestApiRouter(String launcherPlugin,
+                                                                 String pluginClass) throws IOException {
+
+    if (cachedRestApiRouter.containsKey(launcherPlugin)) {
+      return cachedRestApiRouter.get(launcherPlugin);
+    }
+    LOGGER.info("Loading Interpreter Launcher Plugin: " + launcherPlugin);
+    URLClassLoader pluginClassLoader = getPluginClassLoader(pluginsDir, "Launcher", launcherPlugin);
+    RestApiRouter apiRouter = null;
+    try {
+      apiRouter = (RestApiRouter) (Class.forName(pluginClass, true, pluginClassLoader))
+              .getConstructor(ZeppelinConfiguration.class)
+              .newInstance(zConf);
+    } catch (InstantiationException | IllegalAccessException | ClassNotFoundException
+            | NoSuchMethodException | InvocationTargetException e) {
+      LOGGER.warn("Fail to instantiate Launcher from plugin classpath:" + launcherPlugin, e);
+    }
+
+    if (apiRouter == null) {
+      throw new IOException("Fail to load plugin: " + launcherPlugin);
+    }
+    cachedRestApiRouter.put(launcherPlugin, apiRouter);
+    return apiRouter;
+  }
+
+  public synchronized MetricStorage loadNoteServingMetricStorage() throws IOException {
+    String redisAddr = zConf.getInterpreterMetricRedisAddr();
+    if (redisAddr != null) {
+      return new RedisMetricStorage(
+              redisAddr,
+              "",
+              "",
+              RedisMetricStorage.DEFAULT_METRIC_EXPIRE_SEC);
+    }
+    return null;
+  }
+
   private URLClassLoader getPluginClassLoader(String pluginsDir,
                                               String pluginType,
                                               String pluginName) throws IOException {
@@ -187,4 +308,5 @@ public class PluginManager {
   public static void reset() {
     instance = null;
   }
+
 }

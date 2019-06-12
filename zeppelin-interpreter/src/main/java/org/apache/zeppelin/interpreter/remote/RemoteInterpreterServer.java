@@ -8,7 +8,7 @@
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
+ * Unless required by app[licable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
@@ -17,6 +17,7 @@
 
 package org.apache.zeppelin.interpreter.remote;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.apache.commons.lang.exception.ExceptionUtils;
@@ -67,6 +68,8 @@ import org.apache.zeppelin.resource.Resource;
 import org.apache.zeppelin.resource.ResourcePool;
 import org.apache.zeppelin.resource.ResourceSet;
 import org.apache.zeppelin.resource.WellKnownResourceName;
+import org.apache.zeppelin.serving.RedisMetricStorage;
+import org.apache.zeppelin.serving.RestApiServer;
 import org.apache.zeppelin.scheduler.Job;
 import org.apache.zeppelin.scheduler.Job.Status;
 import org.apache.zeppelin.scheduler.JobListener;
@@ -132,18 +135,22 @@ public class RemoteInterpreterServer extends Thread
 
   private boolean isTest;
 
+  private RestApiServer restApiServer;
+
   public RemoteInterpreterServer(String intpEventServerHost,
                                  int intpEventServerPort,
                                  String interpreterGroupId,
-                                 String portRange)
-      throws IOException, TTransportException {
-    this(intpEventServerHost, intpEventServerPort, portRange, interpreterGroupId, false);
+                                 String portRange,
+                                 int restApiServerPort)
+          throws IOException, TTransportException {
+    this(intpEventServerHost, intpEventServerPort, portRange, interpreterGroupId, restApiServerPort,false);
   }
 
   public RemoteInterpreterServer(String intpEventServerHost,
                                  int intpEventServerPort,
                                  String portRange,
                                  String interpreterGroupId,
+                                 int restApiServerPort,
                                  boolean isTest)
       throws TTransportException, IOException {
     logger.info("Starting remote interpreter server on port {}, intpEventServerAddress: {}:{}", port,
@@ -178,6 +185,23 @@ public class RemoteInterpreterServer extends Thread
     server = new TThreadPoolServer(
         new TThreadPoolServer.Args(serverTransport).processor(processor));
     remoteWorksResponsePool = Collections.synchronizedMap(new HashMap<String, Object>());
+
+    if (restApiServerPort <= 0) {
+      restApiServerPort = RemoteInterpreterUtils.findRandomAvailablePortOnAllLocalInterfaces();
+    }
+    // initialize restApiServer for serving
+    RestApiServer.setPort(restApiServerPort);
+    restApiServer = RestApiServer.singleton();
+
+    // serving metric storage
+    if (System.getenv("SERVICE_NAME") != null) {
+      try {
+        restApiServer.addMetricStorage(new RedisMetricStorage());
+      } catch (Exception e) {
+        logger.info("Redis metric storage is not initialized");
+        logger.debug("Error", e);
+      }
+    }
   }
 
   @Override
@@ -273,6 +297,7 @@ public class RemoteInterpreterServer extends Thread
       throws TTransportException, InterruptedException, IOException {
     String zeppelinServerHost = null;
     int port = Constants.ZEPPELIN_INTERPRETER_DEFAUlT_PORT;
+    int restApiServerPort = Constants.ZEPPELIN_INTERPRETER_RESTAPI_DEFAULT_PORT;
     String portRange = ":";
     String interpreterGroupId = null;
     if (args.length > 0) {
@@ -282,9 +307,13 @@ public class RemoteInterpreterServer extends Thread
       if (args.length > 3) {
         portRange = args[3];
       }
+
+      if (args.length > 4) {
+        restApiServerPort = Integer.parseInt(args[4]);
+      }
     }
     RemoteInterpreterServer remoteInterpreterServer =
-        new RemoteInterpreterServer(zeppelinServerHost, port, interpreterGroupId, portRange);
+        new RemoteInterpreterServer(zeppelinServerHost, port, interpreterGroupId, portRange, restApiServerPort);
     remoteInterpreterServer.start();
 
     // add signal handler
@@ -349,7 +378,7 @@ public class RemoteInterpreterServer extends Thread
     }
   }
 
-  protected InterpreterGroup getInterpreterGroup() {
+  public InterpreterGroup getInterpreterGroup() {
     return interpreterGroup;
   }
 
@@ -359,6 +388,11 @@ public class RemoteInterpreterServer extends Thread
 
   protected RemoteInterpreterEventClient getIntpEventClient() {
     return intpEventClient;
+  }
+
+  @VisibleForTesting
+  public void setIntpEventClient(RemoteInterpreterEventClient intpEventClient) {
+    this.intpEventClient = intpEventClient;
   }
 
   private void setSystemProperty(Properties properties) {
@@ -749,6 +783,7 @@ public class RemoteInterpreterServer extends Thread
         .setInterpreterOut(output)
         .setIntpEventClient(intpEventClient)
         .setProgressMap(progressMap)
+        .setRestApiServer(restApiServer)
         .build();
   }
 

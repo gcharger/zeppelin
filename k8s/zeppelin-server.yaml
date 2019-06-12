@@ -29,6 +29,7 @@ data:
   # If you have your ingress controller configured to connect to `zeppelin-server` service and have a domain name for it (with wildcard subdomain point the same address), you can replace serviceDomain field with your own domain.
   serviceDomain: local.zeppelin-project.org:8080
   sparkContainerImage: spark:2.4.0
+  redisAddr: zeppelin-serving-metric-redis.default.svc.cluster.local:6379 # metric storage
   nginx.conf: |
     daemon off;
     worker_processes auto;
@@ -108,6 +109,11 @@ spec:
         fieldRef:
           apiVersion: v1
           fieldPath: metadata.name
+    - name: SERVICE_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
     - name: ZEPPELIN_K8S_SPARK_CONTAINER_IMAGE
       valueFrom:
         configMapKeyRef:
@@ -118,9 +124,16 @@ spec:
         configMapKeyRef:
           name: zeppelin-server-conf
           key: serviceDomain
+    - name: ZEPPELIN_INTERPRETER_METRIC_REDIS_ADDR
+      valueFrom:
+        configMapKeyRef:
+          name: zeppelin-server-conf
+          key: redisAddr
     - name: MASTER   # default value of master property for spark interpreter.
       value: k8s://https://kubernetes.default.svc
-    # volumeMounts:
+    volumeMounts:
+      - name: zeppelin-task-context-volume
+        mountPath: /zeppelin/task
     #  - name: zeppelin-server-notebook-volume     # configure this to persist notebook
     #    mountPath: /zeppelin/notebook
     #  - name: zeppelin-server-conf                # configure this to persist Zeppelin configuration
@@ -162,6 +175,9 @@ spec:
         path: nginx.conf
       - key: serviceDomain
         path: serviceDomain
+  - name: zeppelin-task-context-volume
+    persistentVolumeClaim:
+      claimName: task-context-volume-claim
 ---
 kind: Service
 apiVersion: v1
@@ -171,6 +187,8 @@ spec:
   ports:
     - name: http
       port: 80
+    - name: zeppelin
+      port: 8080
     - name: rpc            # port name is referenced in the code. So it shouldn't be changed.
       port: 12320
   selector:
@@ -182,7 +200,13 @@ metadata:
   name: zeppelin-server-role
 rules:
 - apiGroups: [""]
-  resources: ["pods", "services"]
+  resources: ["pods", "services", "configmaps"]
+  verbs: ["create", "get", "update", "patch", "list", "delete", "watch"]
+- apiGroups: ["extensions", "apps"]
+  resources: ["deployments"]
+  verbs: ["create", "get", "update", "patch", "list", "delete", "watch"]
+- apiGroups: ["batch", "extensions"]
+  resources: ["jobs"]
   verbs: ["create", "get", "update", "patch", "list", "delete", "watch"]
 - apiGroups: ["rbac.authorization.k8s.io"]
   resources: ["roles", "rolebindings"]

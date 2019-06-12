@@ -353,6 +353,22 @@ public class ZeppelinConfiguration extends XMLConfiguration {
     return getString(ConfVars.ZEPPELIN_NOTEBOOK_DIR);
   }
 
+  public String getNotebookRunId() {
+    return getString(ConfVars.ZEPPELIN_NOTEBOOK_RUN_ID);
+  }
+
+  public String getNotebookRunRev() {
+    return getString(ConfVars.ZEPPELIN_NOTEBOOK_RUN_REV);
+  }
+
+  public String getNotebookRunServiceContext() {
+    return getString(ConfVars.ZEPPELIN_NOTEBOOK_RUN_SERVICE_CONTEXT);
+  }
+
+  public boolean getNotebookRunAutoShutdown() {
+    return getBoolean(ConfVars.ZEPPELIN_NOTEBOOK_RUN_AUTOSHUTDOWN);
+  }
+
   public String getPluginsDir() {
     return getRelativeDir(getString(ConfVars.ZEPPELIN_PLUGINS_DIR));
   }
@@ -517,6 +533,14 @@ public class ZeppelinConfiguration extends XMLConfiguration {
 
   public String getInterpreterPortRange() {
     return getString(ConfVars.ZEPPELIN_INTERPRETER_RPC_PORTRANGE);
+  }
+
+  public int getInterpreterRestApiServerPort() {
+    return getInt(ConfVars.ZEPPELIN_INTERPRETER_RESTAPI_PORT);
+  }
+
+  public String getInterpreterMetricRedisAddr() {
+    return getString(ConfVars.ZEPPELIN_INTERPRETER_METRIC_REDIS_ADDR);
   }
 
   public boolean isWindowsPath(String path){
@@ -703,6 +727,14 @@ public class ZeppelinConfiguration extends XMLConfiguration {
     return getRelativeDir(ConfVars.ZEPPELIN_K8S_TEMPLATE_DIR);
   }
 
+  public String getK8sServingContextDir() {
+    return getRelativeDir(ConfVars.ZEPPELIN_K8S_SERVING_CONTEXT_DIR);
+  }
+
+  public String getK8sTestContextDir() {
+    return getRelativeDir(ConfVars.ZEPPELIN_K8S_TEST_CONTEXT_DIR);
+  }
+
   public Map<String, String> dumpConfigurations(Predicate<String> predicate) {
     Map<String, String> properties = new HashMap<>();
 
@@ -766,6 +798,12 @@ public class ZeppelinConfiguration extends XMLConfiguration {
     ZEPPELIN_INTERPRETER_OUTPUT_LIMIT("zeppelin.interpreter.output.limit", 1024 * 100),
     ZEPPELIN_ENCODING("zeppelin.encoding", "UTF-8"),
     ZEPPELIN_NOTEBOOK_DIR("zeppelin.notebook.dir", "notebook"),
+
+    ZEPPELIN_NOTEBOOK_RUN_ID("zeppelin.notebook.run.id", null),   // run particular note id on zeppelin start
+    ZEPPELIN_NOTEBOOK_RUN_REV("zeppelin.notebook.run.rev", null), // revision id for ZEPPELIN_NOTEBOOK_RUN_ID.
+    ZEPPELIN_NOTEBOOK_RUN_SERVICE_CONTEXT("zeppelin.notebook.run.servicecontext", null), // base64 encoded serialized service context to be used ZEPPELIN_NOTEBOOK_RUN_ID.
+    ZEPPELIN_NOTEBOOK_RUN_AUTOSHUTDOWN("zeppelin.notebook.run.autoshutdown", true), // after specified note (ZEPPELIN_NOTEBOOK_RUN_ID) run, shutdown zeppelin server
+
     ZEPPELIN_RECOVERY_DIR("zeppelin.recovery.dir", "recovery"),
     ZEPPELIN_RECOVERY_STORAGE_CLASS("zeppelin.recovery.storage.class",
         "org.apache.zeppelin.interpreter.recovery.NullRecoveryStorage"),
@@ -839,7 +877,8 @@ public class ZeppelinConfiguration extends XMLConfiguration {
 
     ZEPPELIN_SERVER_RPC_PORTRANGE("zeppelin.server.rpc.portRange", ":"),
     ZEPPELIN_INTERPRETER_RPC_PORTRANGE("zeppelin.interpreter.rpc.portRange", ":"),
-
+    ZEPPELIN_INTERPRETER_RESTAPI_PORT("zeppelin.interpreter.restapiserver.port", 0),
+    ZEPPELIN_INTERPRETER_METRIC_REDIS_ADDR("zeppelin.interpreter.metric.redis.addr", null), // serving metric strage. host:port
     ZEPPELIN_INTERPRETER_LIFECYCLE_MANAGER_CLASS("zeppelin.interpreter.lifecyclemanager.class",
         "org.apache.zeppelin.interpreter.lifecycle.NullLifecycleManager"),
     ZEPPELIN_INTERPRETER_LIFECYCLE_MANAGER_TIMEOUT_CHECK_INTERVAL(
@@ -862,6 +901,9 @@ public class ZeppelinConfiguration extends XMLConfiguration {
     ZEPPELIN_K8S_CONTAINER_IMAGE("zeppelin.k8s.container.image", "apache/zeppelin:" + Util.getVersion()),
     ZEPPELIN_K8S_SPARK_CONTAINER_IMAGE("zeppelin.k8s.spark.container.image", "apache/spark:latest"),
     ZEPPELIN_K8S_TEMPLATE_DIR("zeppelin.k8s.template.dir", "k8s"),
+
+    ZEPPELIN_K8S_SERVING_CONTEXT_DIR("zeppelin.k8s.serving.context.dir", "task/serving"),
+    ZEPPELIN_K8S_TEST_CONTEXT_DIR("zeppelin.k8s.test.context.dir", "task/test"),
 
     ZEPPELIN_NOTEBOOK_GIT_REMOTE_URL("zeppelin.notebook.git.remote.url", ""),
     ZEPPELIN_NOTEBOOK_GIT_REMOTE_USERNAME("zeppelin.notebook.git.remote.username", "token"),

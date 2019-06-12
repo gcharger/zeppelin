@@ -10,15 +10,17 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.exec.ExecuteWatchdog;
-import org.apache.commons.lang3.ArrayUtils;
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreterProcess;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreterUtils;
+import org.apache.zeppelin.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class K8sRemoteInterpreterProcess extends RemoteInterpreterProcess {
   private static final Logger LOGGER = LoggerFactory.getLogger(K8sStandardInterpreterLauncher.class);
   private static final int K8S_INTERPRETER_SERVICE_PORT = 12321;
+  private static final int K8S_INTERPRETER_RESTAPISERVER_PORT = 8090;
   private final Kubectl kubectl;
   private final String interpreterGroupId;
   private final String interpreterGroupName;
@@ -67,7 +69,7 @@ public class K8sRemoteInterpreterProcess extends RemoteInterpreterProcess {
     this.zeppelinServiceRpcPort = zeppelinServiceRpcPort;
     this.portForward = portForward;
     this.sparkImage = sparkImage;
-    this.podName = interpreterGroupName.toLowerCase() + "-" + getRandomString(6);
+    this.podName = interpreterGroupName.toLowerCase() + "-" + Util.getRandomString(6);
   }
 
 
@@ -88,7 +90,7 @@ public class K8sRemoteInterpreterProcess extends RemoteInterpreterProcess {
   @Override
   public void start(String userName) throws IOException {
     // create new pod
-    apply(specTempaltes, false);
+    kubectl.apply(specTempaltes, getTemplateBindings(), false);
     kubectl.wait(String.format("pod/%s", getPodName()), "condition=Ready", getConnectTimeout()/1000);
 
     if (portForward) {
@@ -136,7 +138,7 @@ public class K8sRemoteInterpreterProcess extends RemoteInterpreterProcess {
   public void stop() {
     // delete pod
     try {
-      apply(specTempaltes, true);
+      kubectl.apply(specTempaltes, getTemplateBindings(), true);
     } catch (IOException e) {
       LOGGER.info("Error on removing interpreter pod", e);
     }
@@ -202,41 +204,6 @@ public class K8sRemoteInterpreterProcess extends RemoteInterpreterProcess {
     }
   }
 
-  /**
-   * Apply spec file(s) in the path.
-   * @param path
-   */
-  void apply(File path, boolean delete) throws IOException {
-    if (path.getName().startsWith(".") || path.isHidden() || path.getName().endsWith("~")) {
-      LOGGER.info("Skip " + path.getAbsolutePath());
-    }
-
-    if (path.isDirectory()) {
-      File[] files = path.listFiles();
-      Arrays.sort(files);
-      if (delete) {
-        ArrayUtils.reverse(files);
-      }
-
-      for (File f : files) {
-        apply(f, delete);
-      }
-    } else if (path.isFile()) {
-      LOGGER.info("Apply " + path.getAbsolutePath());
-      K8sSpecTemplate specTemplate = new K8sSpecTemplate();
-      specTemplate.loadProperties(getTemplateBindings());
-
-      String spec = specTemplate.render(path);
-      if (delete) {
-        kubectl.delete(spec);
-      } else {
-        kubectl.apply(spec);
-      }
-    } else {
-      LOGGER.error("Can't apply " + path.getAbsolutePath());
-    }
-  }
-
   @VisibleForTesting
   Properties getTemplateBindings() throws IOException {
     Properties k8sProperties = new Properties();
@@ -260,7 +227,18 @@ public class K8sRemoteInterpreterProcess extends RemoteInterpreterProcess {
 
     // environment variables
     envs.put("SERVICE_DOMAIN", envs.getOrDefault("SERVICE_DOMAIN", System.getenv("SERVICE_DOMAIN")));
-    envs.put("ZEPPELIN_HOME", envs.getOrDefault("ZEPPELIN_HOME", "/zeppelin"));
+    envs.put("SERVICE_NAME", envs.getOrDefault("SERVICE_NAME", System.getenv("SERVICE_NAME")));
+    envs.put(ZeppelinConfiguration.ConfVars.ZEPPELIN_HOME.name(),
+            envs.getOrDefault("ZEPPELIN_HOME", "/zeppelin"));
+    envs.put(ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETER_RESTAPI_PORT.name(),
+            String.valueOf(K8S_INTERPRETER_RESTAPISERVER_PORT));
+
+    // pass all env variables starts with ZEPPELIN_INTERPRETER
+    for (String envName : System.getenv().keySet()) {
+      if (envName.startsWith("ZEPPELIN_INTERPRETER")) {
+        envs.put(envName, System.getenv(envName));
+      }
+    }
 
     if (isSpark()) {
       int webUiPort = 4040;
@@ -355,20 +333,6 @@ public class K8sRemoteInterpreterProcess extends RemoteInterpreterProcess {
 
   private String ownerName() {
     return System.getenv("POD_NAME");
-  }
-
-  private String getRandomString(int length) {
-    char[] chars = "abcdefghijklmnopqrstuvwxyz".toCharArray();
-
-    StringBuilder sb = new StringBuilder();
-    Random random = new Random();
-    for (int i = 0; i < length; i++) {
-      char c = chars[random.nextInt(chars.length)];
-      sb.append(c);
-    }
-    String randomStr = sb.toString();
-
-    return randomStr;
   }
 
   @Override

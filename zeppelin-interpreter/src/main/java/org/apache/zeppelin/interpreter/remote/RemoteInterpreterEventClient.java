@@ -17,6 +17,8 @@
 package org.apache.zeppelin.interpreter.remote;
 
 import com.google.gson.Gson;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import org.apache.thrift.TException;
 import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectRegistryListener;
@@ -30,6 +32,7 @@ import org.apache.zeppelin.interpreter.thrift.OutputUpdateAllEvent;
 import org.apache.zeppelin.interpreter.thrift.OutputUpdateEvent;
 import org.apache.zeppelin.interpreter.thrift.ParagraphInfo;
 import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterEventService;
+import org.apache.zeppelin.interpreter.thrift.RestApiInfo;
 import org.apache.zeppelin.interpreter.thrift.RunParagraphsEvent;
 import org.apache.zeppelin.interpreter.thrift.ServiceException;
 import org.apache.zeppelin.resource.RemoteResource;
@@ -37,6 +40,7 @@ import org.apache.zeppelin.resource.Resource;
 import org.apache.zeppelin.resource.ResourceId;
 import org.apache.zeppelin.resource.ResourcePoolConnector;
 import org.apache.zeppelin.resource.ResourceSet;
+import org.apache.zeppelin.serving.RestApiServer;
 import org.apache.zeppelin.user.AuthenticationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -274,6 +278,25 @@ public class RemoteInterpreterEventClient implements ResourcePoolConnector,
       intpEventServiceClient.sendParagraphInfo(intpGroupId, gson.toJson(infos));
     } catch (TException e) {
       LOGGER.warn("Fail to onParaInfosReceived: " + infos, e);
+    }
+  }
+
+  public synchronized void addRestApi(String noteId, String endpointName) {
+    int port = RestApiServer.getPort();
+    try {
+      String hostname = InetAddress.getLocalHost().getHostName();
+      RestApiInfo apiInfo = new RestApiInfo(
+              intpGroupId,
+              noteId,
+              endpointName,
+              hostname,
+              port
+      );
+      intpEventServiceClient.addRestApi(apiInfo);
+    } catch (TException e) {
+      LOGGER.warn("Fail to add rest api endpoint", e);
+    } catch (UnknownHostException e) {
+      LOGGER.error("Can't get host name", e);
     }
   }
 

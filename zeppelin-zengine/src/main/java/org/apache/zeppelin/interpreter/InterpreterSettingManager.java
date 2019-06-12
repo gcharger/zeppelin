@@ -47,10 +47,12 @@ import org.apache.zeppelin.notebook.ApplicationState;
 import org.apache.zeppelin.notebook.Note;
 import org.apache.zeppelin.notebook.NoteEventListener;
 import org.apache.zeppelin.notebook.Paragraph;
+import org.apache.zeppelin.plugin.PluginManager;
 import org.apache.zeppelin.resource.Resource;
 import org.apache.zeppelin.resource.ResourcePool;
 import org.apache.zeppelin.resource.ResourceSet;
 import org.apache.zeppelin.scheduler.Job;
+import org.apache.zeppelin.serving.RestApiRouter;
 import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.util.ReflectionUtils;
 import org.apache.zeppelin.storage.ConfigStorage;
@@ -131,8 +133,7 @@ public class InterpreterSettingManager implements NoteEventListener {
   @Inject
   public InterpreterSettingManager(ZeppelinConfiguration zeppelinConfiguration,
                                    AngularObjectRegistryListener angularObjectRegistryListener,
-                                   RemoteInterpreterProcessListener
-                                       remoteInterpreterProcessListener,
+                                   RemoteInterpreterProcessListener remoteInterpreterProcessListener,
                                    ApplicationEventListener appEventListener)
       throws IOException {
     this(zeppelinConfiguration, new InterpreterOption(),
@@ -177,7 +178,11 @@ public class InterpreterSettingManager implements NoteEventListener {
     LOGGER.info("Using LifecycleManager: " + this.lifecycleManager.getClass().getName());
 
     this.configStorage = configStorage;
-    this.interpreterEventServer = new RemoteInterpreterEventServer(conf, this);
+
+    PluginManager pluginManager = PluginManager.get();
+    RestApiRouter apiRouter = pluginManager.loadNoteServingRestApiRouter();
+
+    this.interpreterEventServer = new RemoteInterpreterEventServer(conf, this, apiRouter);
     this.interpreterEventServer.start();
     init();
   }

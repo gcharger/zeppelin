@@ -39,7 +39,7 @@ Vue.use(VueOffline, {
 
           TRASH_FOLDER_ID: '~Trash'
         },
-        mounted () {
+        beforeMount () {
           commandManager.setupCommands(this.$store)
         },
         methods: {

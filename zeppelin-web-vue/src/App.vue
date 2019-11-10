@@ -9,7 +9,8 @@
           <LeftSidebar />
       </SplitArea>
       <SplitArea :size="75" id="content-pane" class="scrollbar">
-        <router-view />
+        <router-view/>
+        <!-- <router-view :key="$route.path"/> -->
       </SplitArea>
     </Split>
 
@@ -47,7 +48,7 @@ export default {
   created () {
     document.title = 'Zeppelin Notebook'
   },
-  beforeMount () {
+  beforeCreate () {
     ws.init(this)
 
     // get interpreters for note creation

@@ -41,7 +41,10 @@
             class="note-menu"
             placement="bottomRight"
           >
-            <a class="ant-dropdown-link" href="#">
+            <a
+              class="ant-dropdown-link"
+              href="javascript: void(0);"
+            >
               <a-icon type="ellipsis" />
             </a>
             <a-menu slot="overlay">
@@ -108,6 +111,7 @@ export default {
         type: 'note',
         note: note
       })
+      this.$router.push({ name: 'TabManagerNoteView', params: { tabId: note.id } })
     },
     getFileName (path) {
       return path.substr(path.lastIndexOf('/') + 1)

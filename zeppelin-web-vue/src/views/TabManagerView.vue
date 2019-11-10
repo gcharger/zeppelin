@@ -7,6 +7,7 @@
       <Tab
         v-for="currentTab in this.tabList"
         :key="currentTab.id"
+        :id="currentTab.id"
         :name="currentTab.name"
         :tabContent="currentTab"
       >
@@ -25,6 +26,8 @@
 </template>
 
 <script>
+import ws from '@/services/ws-helper'
+
 import TabManager from '@/components/Tabs/TabManager.vue'
 import Tab from '@/components/Tabs/Tab.vue'
 
@@ -35,8 +38,6 @@ import Interpreter from '@/components/Interpreter/InterpreterList.vue'
 import Configurations from '@/components/Settings/Configurations.vue'
 import Credentials from '@/components/Settings/Credentials.vue'
 import NotebookRepository from '@/components/Settings/NotebookRepository.vue'
-
-import { mapState } from 'vuex'
 
 export default {
   name: 'tabManager',
@@ -50,9 +51,55 @@ export default {
     Credentials,
     NotebookRepository
   },
-  computed: mapState({
-    tabList: state => state.TabManagerStore.tabs
-  })
+  data () {
+    return {
+
+    }
+  },
+  computed: {
+    tabList () {
+      return this.$store.state.TabManagerStore.tabs
+    }
+  },
+  mounted () {
+    // Open notebook from the url
+    this.openURLTab()
+  },
+  beforeRouteUpdate () {
+    if (window.popStateDetected) {
+      window.popStateDetected = false
+      this.openURLTab()
+    }
+  },
+  methods: {
+    isListLoaded () {
+      return ws.isListLoaded()
+    },
+    openURLTab () {
+      if (this.isListLoaded()) {
+        console.log('In openURLTab ' + this.$route.params.tabId)
+
+        let tabId = this.$route.params && this.$route.params.tabId
+
+        if (tabId) {
+          let note = this.$store.getters.getNote(tabId)
+
+          this.$root.executeCommand('tabs', 'open', {
+            type: 'note',
+            note: {
+              id: tabId,
+              name: note.name,
+              path: note.path
+            }
+          })
+        }
+      } else {
+        setTimeout(() => {
+          this.openURLTab()
+        }, 1000)
+      }
+    }
+  }
 }
 </script>
 

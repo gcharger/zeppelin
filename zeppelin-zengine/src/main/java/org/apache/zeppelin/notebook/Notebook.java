@@ -99,6 +99,8 @@ public class Notebook {
     this.noteSearchService = noteSearchService;
     this.credentials = credentials;
 
+    preIndexNotebooks();
+
     this.noteEventListeners.add(this.noteSearchService);
     this.noteEventListeners.add(this.interpreterSettingManager);
   }
@@ -124,6 +126,27 @@ public class Notebook {
       this.noteEventListeners.add(noteEventListener);
     }
     this.paragraphJobListener = (ParagraphJobListener) noteEventListener;
+  }
+
+  /**
+   * This method creates index for each notebook used by lucene search
+   */
+  public void preIndexNotebooks() {
+    // pre-index notebooks for search
+    Thread preIndexThread = new Thread(new Runnable() {
+      @Override
+      public void run() {
+        if ( noteSearchService != null && noteManager != null )
+        {
+          List<Note> notes = noteManager.getAllNotes();
+          LOGGER.info( "Pre-index started for " + notes.size() + " notebooks");
+          noteSearchService.addIndexDocs( notes );
+          LOGGER.info( "Notebook index stopped...." );
+        }
+      }
+    });
+
+    preIndexThread.start();
   }
 
   /**

@@ -15,28 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.zeppelin.spark.kotlin;
+package org.apache.zeppelin.kotlin.script
 
-import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.sql.SQLContext;
-import org.apache.zeppelin.interpreter.ZeppelinContext;
+import java.util.HashMap
 
 /**
- * Implicit receiver for Kotlin REPL with Spark's context (see KotlinReceiver for more details)
+ * Kotlin REPL has built-in context for getting user-declared functions and variables
+ * and setting invokeWrapper for additional side effects in evaluation.
+ * It can be accessed inside REPL by name `kc`, e.g. kc.showVars()
  */
-public class SparkKotlinReceiver {
-  public final Object _sparkObject;
-  public final JavaSparkContext sc;
-  public final SQLContext sqlContext;
-  public final ZeppelinContext z;
+class KotlinContext(private val shortenTypes: Boolean) {
+    val vars: MutableMap<String, KotlinVariableInfo> = HashMap()
+    val functions: MutableMap<String, KotlinFunctionInfo> = HashMap()
 
-  public SparkKotlinReceiver(Object spark,
-                             JavaSparkContext sc,
-                             SQLContext sqlContext,
-                             ZeppelinContext z) {
-    this._sparkObject = spark;
-    this.sc = sc;
-    this.sqlContext = sqlContext;
-    this.z = z;
-  }
+    fun showVars() {
+        for (`var` in vars.values) {
+            println(`var`.toString(shortenTypes))
+        }
+    }
+
+    fun showFunctions() {
+        for (`fun` in functions.values) {
+            println(`fun`.toString(shortenTypes))
+        }
+    }
+
+    var wrapper: InvokeWrapper? = null
 }

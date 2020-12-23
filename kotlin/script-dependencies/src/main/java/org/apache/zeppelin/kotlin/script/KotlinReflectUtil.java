@@ -15,28 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.zeppelin.spark.kotlin;
+package org.apache.zeppelin.kotlin.script;
 
-import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.sql.SQLContext;
-import org.apache.zeppelin.interpreter.ZeppelinContext;
+import kotlin.reflect.KFunction;
 
 /**
- * Implicit receiver for Kotlin REPL with Spark's context (see KotlinReceiver for more details)
+ * Util class for pretty-printing Kotlin variables and functions.
  */
-public class SparkKotlinReceiver {
-  public final Object _sparkObject;
-  public final JavaSparkContext sc;
-  public final SQLContext sqlContext;
-  public final ZeppelinContext z;
+public class KotlinReflectUtil {
+  public static final String SCRIPT_PREFIX = "zeppelin";
 
-  public SparkKotlinReceiver(Object spark,
-                             JavaSparkContext sc,
-                             SQLContext sqlContext,
-                             ZeppelinContext z) {
-    this._sparkObject = spark;
-    this.sc = sc;
-    this.sqlContext = sqlContext;
-    this.z = z;
+  private static final String functionSignatureRegex = "Line_\\d+_" + SCRIPT_PREFIX + "\\.";
+
+  public static String functionSignature(KFunction<?> function) {
+    return function.toString().replaceAll(functionSignatureRegex, "");
+  }
+
+  public static String shorten(String name) {
+    if (name == null) {
+      return null;
+    }
+    // kotlin.collections.List<kotlin.Int> -> List<Int>
+    return name.replaceAll("(\\b[_a-zA-Z$][_a-zA-Z0-9$]*\\b\\.)+", "");
   }
 }

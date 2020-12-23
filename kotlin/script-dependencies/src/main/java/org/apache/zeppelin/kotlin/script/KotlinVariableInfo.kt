@@ -14,29 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.zeppelin.kotlin.script
 
-package org.apache.zeppelin.spark.kotlin;
+import kotlin.reflect.KProperty
 
-import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.sql.SQLContext;
-import org.apache.zeppelin.interpreter.ZeppelinContext;
+class KotlinVariableInfo(private val valueGetter: () -> Any, val descriptor: KProperty<*>) {
+    val name: String
+        get() = descriptor.name
+    val type: String
+        get() = descriptor.returnType.toString()
 
-/**
- * Implicit receiver for Kotlin REPL with Spark's context (see KotlinReceiver for more details)
- */
-public class SparkKotlinReceiver {
-  public final Object _sparkObject;
-  public final JavaSparkContext sc;
-  public final SQLContext sqlContext;
-  public final ZeppelinContext z;
+    var _value: Any = valueGetter()
+    val value: Any
+        get() = _value
 
-  public SparkKotlinReceiver(Object spark,
-                             JavaSparkContext sc,
-                             SQLContext sqlContext,
-                             ZeppelinContext z) {
-    this._sparkObject = spark;
-    this.sc = sc;
-    this.sqlContext = sqlContext;
-    this.z = z;
-  }
+    fun toString(shortenTypes: Boolean): String {
+        var type = type
+        if (shortenTypes) {
+            type = KotlinReflectUtil.shorten(type)
+        }
+        return "$name: $type = $value"
+    }
+
+    fun update() {
+        _value = valueGetter()
+    }
+
+    override fun toString(): String {
+        return toString(false)
+    }
 }

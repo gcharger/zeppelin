@@ -15,28 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.zeppelin.spark.kotlin;
+package org.apache.zeppelin.kotlin.script
 
-import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.sql.SQLContext;
-import org.apache.zeppelin.interpreter.ZeppelinContext;
-
-/**
- * Implicit receiver for Kotlin REPL with Spark's context (see KotlinReceiver for more details)
- */
-public class SparkKotlinReceiver {
-  public final Object _sparkObject;
-  public final JavaSparkContext sc;
-  public final SQLContext sqlContext;
-  public final ZeppelinContext z;
-
-  public SparkKotlinReceiver(Object spark,
-                             JavaSparkContext sc,
-                             SQLContext sqlContext,
-                             ZeppelinContext z) {
-    this._sparkObject = spark;
-    this.sc = sc;
-    this.sqlContext = sqlContext;
-    this.z = z;
-  }
-}
+open class BaseScriptClass(val kc: KotlinContext)

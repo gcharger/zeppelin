@@ -15,29 +15,17 @@ REM WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 REM See the License for the specific language governing permissions and
 REM limitations under the License.
 
-if not "%1"=="" goto %1
+setlocal enableextensions enabledelayedexpansion
 
+set bin=%~dp0
+if "%~1"=="start" goto zstart
+if "%~1"=="stop" goto zstop
+echo 'No command given'
 exit /b
 
-:ADDEACHJARINDIR
-for %%d in ("%~2\*.jar") do (
-    set ZEPPELIN_CLASSPATH="%%d";!ZEPPELIN_CLASSPATH!
-)
+:zstart
+start "zeppelind"  %~dp0\zeppelin.cmd
 exit /b
-
-:ADDEACHJARINDIRRECURSIVE
-for /r "%~2" %%d in (*.jar) do (
-    set ZEPPELIN_CLASSPATH="%%d";!ZEPPELIN_CLASSPATH!
-)
-exit /b
-
-:ADDJARINDIR
-if exist "%~2" (
-    set ZEPPELIN_CLASSPATH="%~2\*";%ZEPPELIN_CLASSPATH%
-)
-
-:ADDJARINDIRFORINTP
-if exist "%~2" (
-    set ZEPPELIN_INTP_CLASSPATH="%~2\*";%ZEPPELIN_INTP_CLASSPATH%
-)
+:zstop
+taskkill /T /fi "WindowTitle eq zeppelind*"
 exit /b

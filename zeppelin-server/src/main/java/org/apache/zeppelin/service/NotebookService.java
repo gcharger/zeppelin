@@ -926,8 +926,8 @@ public class NotebookService {
           return null;
         }
 
-        note.getNoteForms().remove(formName);
-        note.getNoteParams().remove(formName);
+        note.removeNoteForm(formName);
+        note.removeNoteParam(formName);
         notebook.saveNote(note, context.getAutheInfo());
         callback.onSuccess(note, context);
         return null;

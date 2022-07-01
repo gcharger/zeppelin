@@ -51,6 +51,8 @@ import org.apache.zeppelin.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static java.lang.System.getProperty;
+
 /**
  * Zeppelin configuration.
  *
@@ -148,6 +150,18 @@ public class ZeppelinConfiguration {
 
   public static void reset() {
     conf = null;
+  }
+
+  public static String getTemporaryDir() {
+    String defaultBaseDir = System.getProperty("java.io.tmpdir");
+    // set tmpdir to /tmp on MacOS, because docker can not share the /var folder which will
+    // cause PythonDockerInterpreter fails.
+    // https://stackoverflow.com/questions/45122459/docker-mounts-denied-the-paths-are-not-shared-
+    // from-os-x-and-are-not-known
+    if (System.getProperty("os.name", "").contains("Mac")) {
+      defaultBaseDir = "/tmp";
+    }
+    return defaultBaseDir;
   }
 
   public void setProperty(String name, String value) {
@@ -1018,6 +1032,9 @@ public class ZeppelinConfiguration {
     ZEPPELIN_NOTEBOOK_AUTO_INTERPRETER_BINDING("zeppelin.notebook.autoInterpreterBinding", true),
     ZEPPELIN_CONF_DIR("zeppelin.conf.dir", "conf"),
     ZEPPELIN_CONFIG_FS_DIR("zeppelin.config.fs.dir", ""),
+    ZEPPELIN_RESULT_DATA_DIR("zeppelin.result.data.path",
+        String.join(File.separator,
+                getTemporaryDir(), "zeppelin-" + getProperty("user.name"))),
     ZEPPELIN_CONFIG_STORAGE_CLASS("zeppelin.config.storage.class",
         "org.apache.zeppelin.storage.LocalConfigStorage"),
     ZEPPELIN_DEP_LOCALREPO("zeppelin.dep.localrepo", "local-repo"),

@@ -17,8 +17,6 @@
 
 package org.apache.zeppelin.interpreter.launcher;
 
-import com.google.common.base.CharMatcher;
-import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.interpreter.recovery.RecoveryStorage;
@@ -28,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,8 +38,8 @@ import java.util.stream.Collectors;
 public class FlinkInterpreterLauncher extends StandardInterpreterLauncher {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FlinkInterpreterLauncher.class);
-  private static final Set<String> FLINK_EXECUTION_MODES = Sets.newHashSet(
-          "local", "remote", "yarn", "yarn-application", "kubernetes-application");
+  private static final Set<String> FLINK_EXECUTION_MODES = new HashSet<>(Arrays.asList(
+          "local", "remote", "yarn", "yarn-application", "kubernetes-application"));
 
   public FlinkInterpreterLauncher(ZeppelinConfiguration zConf, RecoveryStorage recoveryStorage) {
     super(zConf, recoveryStorage);
@@ -243,7 +242,7 @@ public class FlinkInterpreterLauncher extends StandardInterpreterLauncher {
       String value = entry.getValue().toString();
       if (!key.equalsIgnoreCase("yarn.ship-files") &&
               !key.equalsIgnoreCase("flink.yarn.appName")) {
-        if (CharMatcher.whitespace().matchesAnyOf(value)) {
+        if (StringUtils.containsWhitespace(value)) {
           LOGGER.warn("flink configuration key {} is skipped because it contains white space",
                   key);
         } else {

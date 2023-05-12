@@ -29,6 +29,9 @@ import { NzModalService } from 'ng-zorro-antd/modal';
 import { ActivatedRoute } from '@angular/router';
 import { RuntimeInfos } from '@zeppelin/sdk';
 import { MessageService } from '@zeppelin/services';
+import {
+  Note
+} from '@zeppelin/sdk';
 
 @Component({
   selector: 'zeppelin-notebook-paragraph-control',
@@ -38,6 +41,7 @@ import { MessageService } from '@zeppelin/services';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class NotebookParagraphControlComponent implements OnInit, OnChanges {
+  @Input() note: Note['note'];
   @Input() status: string;
   @Input() progress = 0;
   @Input() revisionView = false;
@@ -62,6 +66,7 @@ export class NotebookParagraphControlComponent implements OnInit, OnChanges {
   @Output() readonly fontSizeChange = new EventEmitter<number>();
   @Output() readonly tableHideChange = new EventEmitter<boolean>();
   @Output() readonly runParagraph = new EventEmitter();
+  @Output() readonly debugParagraph = new EventEmitter();
   @Output() readonly lineNumbersChange = new EventEmitter<boolean>();
   @Output() readonly cancelParagraph = new EventEmitter();
   @Output() readonly editorHideChange = new EventEmitter<boolean>();
@@ -193,6 +198,14 @@ export class NotebookParagraphControlComponent implements OnInit, OnChanges {
         icon: 'api',
         trigger: () => this.toggleEnabled(),
         shortCut: `R (Command)`
+      },
+      {
+        label: 'Debug',
+        show: this.note.defaultInterpreterGroup==='jdbc' ?true:false,
+        disabled: this.isEntireNoteRunning,
+        icon: 'api',
+        trigger: () => this.trigger(this.debugParagraph),
+        shortCut: `G (Command)`
       }
     ];
   }

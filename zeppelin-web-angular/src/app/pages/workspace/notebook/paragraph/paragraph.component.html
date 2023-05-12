@@ -57,7 +57,8 @@
                                          (runAllAbove)="runAllAbove()"
                                          (runAllBelowAndCurrent)="runAllBelowAndCurrent()"
                                          (cloneParagraph)="cloneParagraph()"
-                                         (cancelParagraph)="cancelParagraph()"></zeppelin-notebook-paragraph-control>
+                                         (cancelParagraph)="cancelParagraph()"
+                                         (debugParagraph)="debugParagraph()"></zeppelin-notebook-paragraph-control>
     <zeppelin-notebook-paragraph-code-editor *ngIf="!paragraph.config.editorHide && !viewOnly"
                                              [text]="paragraph.text"
                                              [paragraphControl]="paragraphControl"

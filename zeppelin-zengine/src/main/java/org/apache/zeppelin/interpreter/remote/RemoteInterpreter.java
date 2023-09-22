@@ -125,7 +125,7 @@ public class RemoteInterpreter extends Interpreter {
               ((RemoteInterpreter) interpreter).internal_create();
             }
           } catch (IOException e) {
-            throw new InterpreterException(e);
+            throw new InterpreterException(e.getMessage(), e.getCause());
           }
         }
 
@@ -174,7 +174,7 @@ public class RemoteInterpreter extends Interpreter {
       try {
         interpreterProcess = getOrCreateInterpreterProcess();
       } catch (IOException e) {
-        throw new InterpreterException(e);
+        throw new InterpreterException(e.getMessage(), e.getCause());
       }
       interpreterProcess.callRemoteFunction(client -> {
         client.close(sessionId, className);
@@ -198,7 +198,7 @@ public class RemoteInterpreter extends Interpreter {
     try {
       interpreterProcess = getOrCreateInterpreterProcess();
     } catch (IOException e) {
-      throw new InterpreterException(e);
+      throw new InterpreterException(e.getMessage(), e.getCause());
     }
     if (!interpreterProcess.isRunning()) {
       return new InterpreterResult(InterpreterResult.Code.ERROR,
@@ -250,7 +250,7 @@ public class RemoteInterpreter extends Interpreter {
     try {
       interpreterProcess = getOrCreateInterpreterProcess();
     } catch (IOException e) {
-      throw new InterpreterException(e);
+      throw new InterpreterException(e.getMessage(), e.getCause());
     }
     interpreterProcess.callRemoteFunction(client -> {
       client.cancel(sessionId, className, convert(context));
@@ -274,7 +274,7 @@ public class RemoteInterpreter extends Interpreter {
     try {
       interpreterProcess = getOrCreateInterpreterProcess();
     } catch (IOException e) {
-      throw new InterpreterException(e);
+      throw new InterpreterException(e.getMessage(), e.getCause());
     }
 
     return interpreterProcess.callRemoteFunction(client -> {
@@ -294,7 +294,7 @@ public class RemoteInterpreter extends Interpreter {
     try {
       interpreterProcess = getOrCreateInterpreterProcess();
     } catch (IOException e) {
-      throw new InterpreterException(e);
+      throw new InterpreterException(e.getMessage(), e.getCause());
     }
     return interpreterProcess.callRemoteFunction(client ->
             client.getProgress(sessionId, className, convert(context)));
@@ -312,7 +312,7 @@ public class RemoteInterpreter extends Interpreter {
     try {
       interpreterProcess = getOrCreateInterpreterProcess();
     } catch (IOException e) {
-      throw new InterpreterException(e);
+      throw new InterpreterException(e.getMessage(), e.getCause());
     }
     return interpreterProcess.callRemoteFunction(client ->
             client.completion(sessionId, className, buf, cursor, convert(interpreterContext)));

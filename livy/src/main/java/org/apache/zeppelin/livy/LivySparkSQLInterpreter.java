@@ -39,6 +39,7 @@ import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResultMessage;
 import org.apache.zeppelin.interpreter.InterpreterUtils;
 import org.apache.zeppelin.interpreter.ResultMessages;
+import org.apache.zeppelin.interpreter.util.SqlSplitter;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 
@@ -59,7 +60,7 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
   private boolean isSpark2 = false;
   private int maxResult = 1000;
   private boolean truncate = true;
-
+  private SqlSplitter sqlSplitter;
   public LivySparkSQLInterpreter(Properties property) {
     super(property);
     this.maxResult = Integer.parseInt(property.getProperty(ZEPPELIN_LIVY_SPARK_SQL_MAX_RESULT));
@@ -76,6 +77,7 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
 
   @Override
   public void open() throws InterpreterException {
+    this.sqlSplitter = new SqlSplitter();
     this.sparkInterpreter = getInterpreterInTheSameSessionByClassName(LivySparkInterpreter.class);
     // As we don't know whether livyserver use spark2 or spark1, so we will detect SparkSession
     // to judge whether it is using spark2.
@@ -113,7 +115,41 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
   }
 
   @Override
-  public InterpreterResult interpret(String line, InterpreterContext context) {
+  public InterpreterResult interpret(String text, InterpreterContext context) {
+    String appInfoHtml = "";
+    List<String> sqlQueries = sqlSplitter.splitSql(text);
+    for (String query:sqlQueries) {
+      try {
+        InterpreterResult res = interpretSql(query, context);
+        for (InterpreterResultMessage msg: res.message()){
+          if (this.displayAppInfo && msg.getData().startsWith("<hr/>Spark Application Id: ")){
+            appInfoHtml = msg.toString();
+            continue;
+          }
+          context.out.write(msg.toString());
+          context.out.write("\n");
+          context.out.flush();
+        }
+      } catch (Exception e){
+        LOGGER.error(e.toString());
+        e.printStackTrace();
+      }
+    }
+
+    if (this.displayAppInfo){
+      try {
+        context.out.write(appInfoHtml);
+        context.out.flush();
+      } catch (Exception e){
+        LOGGER.error(e.getMessage());
+        e.printStackTrace();
+      }
+    }
+
+    return new InterpreterResult(InterpreterResult.Code.SUCCESS);
+  }
+
+  public InterpreterResult interpretSql(String line, InterpreterContext context) {
     try {
       if (StringUtils.isEmpty(line)) {
         return new InterpreterResult(InterpreterResult.Code.SUCCESS, "");
@@ -151,6 +187,11 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
             } else {
               rows = parseSQLOutput(message.getData());
             }
+            // ddl statement will result in empty table without header
+            if (rows.size() == 0){
+              result2.add(InterpreterResult.Type.TEXT, "success");
+              continue;
+            }
             result2.add(InterpreterResult.Type.TABLE, StringUtils.join(rows, "\n"));
             if (rows.size() >= (maxResult + 1)) {
               result2.add(ResultMessages.getExceedsLimitRowsMessage(maxResult,
@@ -180,18 +221,24 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
     List<String> rows = new ArrayList<>();
 
     String[] rowsOutput = output.split("(?<!\\\\)\\n");
+    if (rowsOutput.length <= 1){
+      // message.getData() for DDL statement is only 1 line :
+      // "df: org.apache.spark.sql.DataFrame = []"
+      return rows;
+    }
     String[] header = rowsOutput[1].split("\t");
     List<String> cells = new ArrayList<>(Arrays.asList(header));
     rows.add(StringUtils.join(cells, "\t"));
 
     for (int i = 2; i < rowsOutput.length; i++) {
-      Map<String, String> retMap = new Gson().fromJson(
-          rowsOutput[i], new TypeToken<HashMap<String, String>>() {
+      Map<String, Object> retMap = new Gson().fromJson(
+          rowsOutput[i], new TypeToken<HashMap<String, Object>>() {
           }.getType()
       );
       cells = new ArrayList<>();
       for (String s : header) {
         cells.add(retMap.getOrDefault(s, "null")
+            .toString()
             .replace("\n", "\\n")
             .replace("\t", "\\t"));
       }

@@ -26,6 +26,7 @@ import org.apache.zeppelin.interpreter.InterpreterGroup;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.ManagedInterpreterGroup;
 import org.apache.zeppelin.interpreter.remote.RemoteAngularObjectRegistry;
+import org.apache.zeppelin.interpreter.remote.RemoteCallException;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreterProcess;
 import org.apache.zeppelin.interpreter.thrift.RemoteApplicationResult;
 import org.apache.zeppelin.notebook.ApplicationState;
@@ -223,7 +224,7 @@ public class HeliumApplicationFactory implements ApplicationEventListener, NoteE
         }
 
         RemoteApplicationResult ret = intpProcess.callRemoteFunction(client ->
-                client.unloadApplication(appsToUnload.getId()));
+                  client.unloadApplication(appsToUnload.getId()));
         if (ret.isSuccess()) {
           appStatusChange(paragraph, appsToUnload.getId(), ApplicationState.Status.UNLOADED);
         } else {

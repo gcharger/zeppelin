@@ -17,6 +17,7 @@
 package org.apache.zeppelin.interpreter.remote;
 
 import com.google.gson.Gson;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TSocket;
@@ -89,7 +90,7 @@ public abstract class RemoteInterpreterProcess implements InterpreterClient, Aut
   public void updateRemoteAngularObject(String name,
                                         String noteId,
                                         String paragraphId,
-                                        Object o) {
+                                        Object o) throws RemoteCallException {
     remoteClient.callRemoteFunction(client -> {
        client.angularObjectUpdate(name, noteId, paragraphId, GSON.toJson(o));
        return null;
@@ -97,10 +98,19 @@ public abstract class RemoteInterpreterProcess implements InterpreterClient, Aut
   }
 
   public <R> R callRemoteFunction(PooledRemoteClient.RemoteFunction<R, Client> func) {
-    return remoteClient.callRemoteFunction(func);
+    try {
+      return remoteClient.callRemoteFunction(func);
+    } catch (RemoteCallException e) {
+      String processErrorMessage = getErrorMessage();
+      if (StringUtils.isNotBlank(processErrorMessage)) {
+        throw new RuntimeException(String.format("Interpreter process is failed, cause: %s", processErrorMessage));
+      } else {
+        throw new RuntimeException(e);
+      }
+    }
   }
 
-  public void init(ZeppelinConfiguration zConf) {
+  public void init(ZeppelinConfiguration zConf) throws RemoteCallException {
     callRemoteFunction(client -> {
       client.init(zConf.getCompleteConfiguration());
       return null;

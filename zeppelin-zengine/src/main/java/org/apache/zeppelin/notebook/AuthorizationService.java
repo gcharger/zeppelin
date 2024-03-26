@@ -270,8 +270,6 @@ public class AuthorizationService implements ClusterEventListener {
   public boolean isReader(String noteId, Set<String> entities) {
     return isMember(entities, getReaders(noteId)) ||
             isMember(entities, getOwners(noteId)) ||
-            isMember(entities, getWriters(noteId)) ||
-            isMember(entities, getRunners(noteId)) ||
             isAdmin(entities);
   }
 

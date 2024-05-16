@@ -22,7 +22,6 @@ import org.apache.zeppelin.MiniZeppelinServer;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.rest.AbstractTestRestApi;
 import org.apache.zeppelin.user.AuthenticationInfo;
-import org.apache.zeppelin.utils.TestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;

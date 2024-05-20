@@ -24,6 +24,7 @@ import static org.apache.zeppelin.interpreter.InterpreterResult.Code.ERROR;
 import static org.apache.zeppelin.scheduler.Job.Status.ABORT;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
@@ -31,15 +32,11 @@ import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import javax.inject.Inject;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.display.AngularObject;
@@ -899,7 +896,16 @@ public class NotebookService {
           }
         } else {
           String requestCronUser = (String) config.get("cronExecutingUser");
-          Set<String> requestCronRoles = (Set<String>) config.get("cronExecutingRoles");
+          Set<String> requestCronRoles;
+          if (config.getOrDefault("cronExecutingRoles", new HashSet<String>()) instanceof String) {
+            Gson gson = new Gson();
+            Type listType = new TypeToken<List<String>>() {}.getType();
+            String cronExecutingRoles = (String) config.get("cronExecutingRoles");
+            List<String> list = gson.fromJson(cronExecutingRoles, listType);
+            requestCronRoles = new HashSet<String>(list);
+          } else {
+            requestCronRoles = (Set<String>) config.get("cronExecutingRoles");
+          }
 
           if (!authorizationService.hasRunPermission(Collections.singleton(requestCronUser), note.getId())) {
             LOGGER.error("Wrong cronExecutingUser: {}", requestCronUser);

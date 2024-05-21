@@ -913,13 +913,15 @@ public class NotebookService {
             return null;
           } else {
             // This part should be restarted but we need to prepare to notice who can be a cron user in advance
-            if (!context.getUserAndRoles().contains(requestCronUser)) {
+            if (requestCronUser != null && !requestCronUser.isEmpty()
+                    && !context.getUserAndRoles().contains(requestCronUser)) {
               LOGGER.error("Wrong cronExecutingUser: {}", requestCronUser);
               callback.onFailure(new IllegalArgumentException(requestCronUser), context);
               return null;
             }
 
-            if (!context.getUserAndRoles().containsAll(requestCronRoles)) {
+            if (requestCronRoles != null && requestCronRoles.isEmpty()
+                    && !context.getUserAndRoles().containsAll(requestCronRoles)) {
               LOGGER.error("Wrong cronExecutingRoles: {}", requestCronRoles);
               callback.onFailure(new IllegalArgumentException(requestCronRoles.toString()), context);
               return null;

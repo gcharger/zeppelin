@@ -896,13 +896,14 @@ public class NotebookService {
           }
         } else {
           String requestCronUser = (String) config.get("cronExecutingUser");
-          Set<String> requestCronRoles;
+          Set<String> requestCronRoles = new HashSet<String>();
           if (config.getOrDefault("cronExecutingRoles", new HashSet<String>()) instanceof String) {
             Gson gson = new Gson();
             Type listType = new TypeToken<List<String>>() {}.getType();
             String cronExecutingRoles = (String) config.get("cronExecutingRoles");
             List<String> list = gson.fromJson(cronExecutingRoles, listType);
-            requestCronRoles = new HashSet<String>(list);
+            if (list != null)
+              requestCronRoles = new HashSet<String>(list);
           } else {
             requestCronRoles = (Set<String>) config.get("cronExecutingRoles");
           }
